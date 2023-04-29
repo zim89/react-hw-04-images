@@ -1,55 +1,102 @@
-import React, { useState } from 'react';
-import Statistics from './Statistics/Statistics';
-import FeedbackOptions from './FeedbackOptions/FeedbackOptions';
-import Section from './Section/Section';
+import React, { useState, useEffect } from 'react';
+import { Notify, Loading } from 'notiflix';
+import { Wrapper, ErrorText } from './App.styled';
+import Searchbar from './Searchbar/Searchbar';
+import ImageGallery from './ImageGallery/ImageGallery';
+import Modal from './Modal/Modal';
+import API from 'services/fetchImages';
+import Button from './Button/Button';
 
-function App() {
-  const [good, setGood] = useState(0);
-  const [neutral, setNeutral] = useState(0);
-  const [bad, setBad] = useState(0);
+Notify.init({
+  clickToClose: true,
+  fontSize: '14px',
+});
 
-  const options = ['good', 'neutral', 'bad'];
+export default function App() {
+  const [images, setImages] = useState([]);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [largeImage, setLargeImage] = useState('');
+  const [tags, setTags] = useState('');
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState(null);
 
-  const handleClick = e => {
-    const { name } = e.target;
-
-    switch (name) {
-      case 'good':
-        return setGood(state => state + 1);
-
-      case 'neutral':
-        return setNeutral(state => state + 1);
-
-      case 'bad':
-        return setBad(state => state + 1);
-
-      default:
-        return console.warn(`Нет такого свойства ${name}`);
+  useEffect(() => {
+    if (!query) {
+      return;
     }
+
+    const fetchImages = async (query, page) => {
+      try {
+        setIsLoading(true);
+        const data = await API.fetchImages(query, page);
+        if (data.hits.length === 0) {
+          Notify.failure('We did not find anything for your request');
+          return;
+        }
+        setImages(state => [...state, ...data.hits]);
+        setTotal(data.totalHits);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchImages(query, page);
+  }, [page, query]);
+
+  const handleSubmit = query => {
+    setQuery(query);
+    setPage(1);
+    setImages([]);
   };
 
-  const countTotalFeedback = () => good + neutral + bad;
+  const onLoadMore = () => setPage(state => state + 1);
 
-  const countPositiveFeedbackPercentage = () =>
-    Math.round((good / countTotalFeedback()) * 100) || 0;
+  const onOpenModal = (largeImage, tags) => {
+    setShowModal(true);
+    setLargeImage(largeImage);
+    setTags(tags);
+  };
+
+  const onCloseModal = () => {
+    setShowModal(false);
+    setLargeImage('');
+    setTags('');
+  };
+
+  const countTotalPage = () => total / images.length;
 
   return (
-    <div>
-      <Section title="Please leave feedback">
-        <FeedbackOptions options={options} handleClick={handleClick} />
-      </Section>
+    <Wrapper>
+      <Searchbar onSubmit={handleSubmit} />
 
-      <Section title="Statistics">
-        <Statistics
-          good={good}
-          neutral={neutral}
-          bad={bad}
-          total={countTotalFeedback()}
-          positivePercentage={countPositiveFeedbackPercentage()}
+      {isLoading ? Loading.arrows({ svgSize: '240px' }) : Loading.remove()}
+
+      {images.length !== 0 && (
+        <ImageGallery images={images} onOpenModal={onOpenModal} />
+      )}
+
+      {countTotalPage() > 1 && !isLoading && images.length !== 0 && (
+        <Button onClick={onLoadMore} />
+      )}
+
+      {showModal && (
+        <Modal
+          largeImage={largeImage}
+          tags={tags}
+          onCloseModal={onCloseModal}
         />
-      </Section>
-    </div>
+      )}
+
+      {error && (
+        <ErrorText>
+          An unexpected error has occurred. Try to come back later.
+        </ErrorText>
+      )}
+    </Wrapper>
   );
 }
-
-export default App;
