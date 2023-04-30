@@ -68,7 +68,7 @@ export default function App() {
     setTags('');
   };
 
-  const countTotalPage = () => total / images.length;
+  const countTotalPage = total / images.length;
 
   return (
     <Wrapper>
@@ -80,7 +80,7 @@ export default function App() {
         <ImageGallery images={images} onOpenModal={onOpenModal} />
       )}
 
-      {countTotalPage() > 1 && !isLoading && images.length !== 0 && (
+      {countTotalPage > 1 && !isLoading && images.length !== 0 && (
         <Button onClick={onLoadMore} />
       )}
 
